@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>絵文字暗号解読ゲーム</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold text-center mb-2">🔐 絵文字暗号解読ゲーム</h1>
+  <p class="text-center text-gray-400 mb-6">絵文字の組み合わせが表すことわざ・映画・著名人を当てよう！</p>
+
+  <div id="game-area" class="bg-gray-800 rounded-xl p-6 mb-4">
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex gap-4">
+        <span class="text-yellow-400 font-bold">スコア: <span id="score">0</span></span>
+        <span class="text-blue-400 font-bold">問題: <span id="qnum">1</span>/10</span>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-easy" class="px-3 py-1 rounded-full text-sm bg-green-700 hover:bg-green-600" aria-label="難易度: 簡単">簡単</button>
+        <button id="btn-mid" class="px-3 py-1 rounded-full text-sm bg-yellow-700 hover:bg-yellow-600" aria-label="難易度: 普通">普通</button>
+        <button id="btn-hard" class="px-3 py-1 rounded-full text-sm bg-red-700 hover:bg-red-600" aria-label="難易度: 難しい">難しい</button>
+      </div>
+    </div>
+
+    <div id="category-badge" class="text-center mb-3">
+      <span class="bg-purple-700 px-3 py-1 rounded-full text-sm"></span>
+    </div>
+
+    <div id="emoji-display" class="text-center text-6xl py-6 tracking-widest min-h-24"></div>
+
+    <div id="hint-area" class="text-center text-gray-400 text-sm mb-4 min-h-6"></div>
+
+    <div class="flex gap-2 mb-4">
+      <label for="answer-input" class="sr-only">答えを入力</label>
+      <input id="answer-input" type="text" placeholder="答えを入力してください..." class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400">
+      <button id="btn-submit" class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-bold" aria-label="回答する">回答</button>
+    </div>
+
+    <div class="flex gap-2 justify-center">
+      <button id="btn-hint" class="bg-yellow-700 hover:bg-yellow-600 px-4 py-2 rounded-lg text-sm" aria-label="ヒントを見る">💡 ヒント (-10pt)</button>
+      <button id="btn-skip" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-sm" aria-label="スキップ">⏭ スキップ</button>
+    </div>
+
+    <div id="result-msg" class="text-center text-xl font-bold mt-4 min-h-8"></div>
+  </div>
+
+  <div id="create-area" class="bg-gray-800 rounded-xl p-6 mb-4">
+    <h2 class="text-lg font-bold mb-3">✏️ オリジナル暗号を作成</h2>
+    <div class="flex flex-col gap-2">
+      <div>
+        <label for="custom-emoji" class="block text-sm text-gray-400 mb-1">絵文字の組み合わせ</label>
+        <input id="custom-emoji" type="text" placeholder="例: 🌧️💪🌈" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400">
+      </div>
+      <div>
+        <label for="custom-answer" class="block text-sm text-gray-400 mb-1">答え（ことわざ・映画・著名人）</label>
+        <input id="custom-answer" type="text" placeholder="例: 雨降って地固まる" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400">
+      </div>
+      <div>
+        <label for="custom-hint" class="block text-sm text-gray-400 mb-1">ヒント</label>
+        <input id="custom-hint" type="text" placeholder="例: ことわざ・4文字" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400">
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-save-custom" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-bold" aria-label="保存する">💾 保存</button>
+        <button id="btn-share" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-bold" aria-label="URLをコピー">🔗 URLコピー</button>
+      </div>
+      <div id="save-msg" class="text-green-400 text-sm min-h-5"></div>
+    </div>
+  </div>
+
+  <div id="custom-list-area" class="bg-gray-800 rounded-xl p-6">
+    <h2 class="text-lg font-bold mb-3">📚 保存済みオリジナル暗号</h2>
+    <div id="custom-list" class="space-y-2 text-sm text-gray-300"></div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+const PUZZLES = {
+  easy: [
+    {emoji:'🐢🐇', answer:'うさぎとかめ', hint:'寓話・2文字と2文字', category:'ことわざ・童話'},
+    {emoji:'🌸🇯🇵', answer:'日本の春', hint:'季節と国', category:'自然'},
+    {emoji:'🍎🍎🍎', answer:'三個のりんご', hint:'数と果物', category:'なぞなぞ'},
+    {emoji:'🌙⭐🌙', answer:'月と星', hint:'夜の空', category:'自然'},
+    {emoji:'🐱🐶❤️', answer:'猫も杓子も', hint:'ことわざ・みんな', category:'ことわざ'},
+    {emoji:'☀️🌧️🌈', answer:'雨上がりの虹', hint:'天気の変化', category:'自然'},
+  ],
+  medium: [
+    {emoji:'🐸🍵', answer:'蛙の子は蛙', hint:'ことわざ・親子', category:'ことわざ'},
+    {emoji:'🌧️💪🌍', answer:'雨降って地固まる', hint:'ことわざ・困難の後', category:'ことわざ'},
+    {emoji:'🦅🗽🇺🇸', answer:'アメリカ合衆国', hint:'国名・自由の女神', category:'地理'},
+    {emoji:'🎭😂😢', answer:'喜劇と悲劇', hint:'演劇の2種', category:'芸術'},
+    {emoji:'🍺🤝👔', answer:'飲みにケーション', hint:'和製英語・職場文化', category:'社会'},
+    {emoji:'🐝🌺🍯', answer:'花から花へ', hint:'蜂の仕事', category:'自然'},
+    {emoji:'🏃💨💰', answer:'時は金なり', hint:'ことわざ・時間の価値', category:'ことわざ'},
+  ],
+  hard: [
+    {emoji:'🕵️🔍💡', answer:'名探偵コナン', hint:'アニメ・名前は小さい', category:'アニメ'},
+    {emoji:'🌊🦈😱', answer:'ジョーズ', hint:'映画・海のモンスター', category:'映画'},
+    {emoji:'🌹⏰👩', answer:'眠れる森の美女', hint:'童話・お姫様', category:'童話'},
+    {emoji:'🦁👑❤️', answer:'ライオンキング', hint:'映画・アフリカ', category:'映画'},
+    {emoji:'🍀🌈🌙⭐', answer:'七夕', hint:'日本の行事・星座', category:'行事'},
+    {emoji:'🎸🤘💀', answer:'ロックンロール', hint:'音楽ジャンル', category:'音楽'},
+    {emoji:'🏔️🌨️🧗', answer:'エベレスト登山', hint:'世界最高峰', category:'地理'},
+  ]
+};
+
+const STORAGE_KEY = 'app_emoji-cipher-decoder-game';
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
+  score: 0, qnum: 1, difficulty: 'easy', hintUsed: false, answered: false,
+  customPuzzles: [], currentIdx: 0
+};
+
+let allPuzzles = [];
+let currentPuzzle = null;
+let hintUsed = false;
+
+function loadState() {
+  const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (s && s.customPuzzles) state.customPuzzles = s.customPuzzles;
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getDifficulty() { return state.difficulty || 'easy'; }
+
+function buildPuzzleList() {
+  const d = getDifficulty();
+  allPuzzles = [...PUZZLES[d], ...state.customPuzzles];
+  if (allPuzzles.length === 0) allPuzzles = PUZZLES.easy;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function startGame() {
+  buildPuzzleList();
+  shuffle(allPuzzles);
+  state.score = 0;
+  state.qnum = 1;
+  state.currentIdx = 0;
+  saveState();
+  loadQuestion();
+  updateScoreDisplay();
+}
+
+function loadQuestion() {
+  if (state.qnum > 10) { showGameOver(); return; }
+  currentPuzzle = allPuzzles[state.currentIdx % allPuzzles.length];
+  state.currentIdx++;
+  hintUsed = false;
+
+  document.getElementById('emoji-display').textContent = currentPuzzle.emoji;
+  document.getElementById('category-badge').querySelector('span').textContent = currentPuzzle.category || 'クイズ';
+  document.getElementById('hint-area').textContent = '';
+  document.getElementById('result-msg').textContent = '';
+  document.getElementById('answer-input').value = '';
+  document.getElementById('answer-input').disabled = false;
+  document.getElementById('btn-submit').disabled = false;
+  document.getElementById('qnum').textContent = state.qnum;
+}
+
+function checkAnswer() {
+  if (!currentPuzzle) return;
+  const input = document.getElementById('answer-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const correct = currentPuzzle.answer;
+  const resultEl = document.getElementById('result-msg');
+
+  if (val === correct || val.includes(correct) || correct.includes(val)) {
+    const pts = hintUsed ? 10 : 20;
+    state.score += pts;
+    resultEl.textContent = `✅ 正解！ +${pts}pt`;
+    resultEl.className = 'text-center text-xl font-bold mt-4 text-green-400';
+  } else {
+    resultEl.textContent = `❌ 不正解... 答え: ${correct}`;
+    resultEl.className = 'text-center text-xl font-bold mt-4 text-red-400';
+  }
+
+  input.disabled = true;
+  document.getElementById('btn-submit').disabled = true;
+  updateScoreDisplay();
+  saveState();
+
+  setTimeout(() => {
+    state.qnum++;
+    loadQuestion();
+  }, 1500);
+}
+
+function showHint() {
+  if (!currentPuzzle || hintUsed) return;
+  hintUsed = true;
+  document.getElementById('hint-area').textContent = `💡 ヒント: ${currentPuzzle.hint}`;
+}
+
+function skipQuestion() {
+  const resultEl = document.getElementById('result-msg');
+  if (currentPuzzle) {
+    resultEl.textContent = `⏭ スキップ。答え: ${currentPuzzle.answer}`;
+    resultEl.className = 'text-center text-xl font-bold mt-4 text-gray-400';
+  }
+  document.getElementById('answer-input').disabled = true;
+  document.getElementById('btn-submit').disabled = true;
+  setTimeout(() => {
+    state.qnum++;
+    loadQuestion();
+  }, 1200);
+}
+
+function showGameOver() {
+  document.getElementById('emoji-display').textContent = '🎉';
+  document.getElementById('hint-area').textContent = '';
+  document.getElementById('result-msg').textContent = `ゲーム終了！ 最終スコア: ${state.score}pt`;
+  document.getElementById('result-msg').className = 'text-center text-2xl font-bold mt-4 text-yellow-400';
+  document.getElementById('answer-input').disabled = true;
+  document.getElementById('btn-submit').disabled = true;
+  document.getElementById('category-badge').querySelector('span').textContent = 'ゲーム終了';
+  document.getElementById('qnum').textContent = '10';
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score').textContent = state.score;
+}
+
+function renderCustomList() {
+  const listEl = document.getElementById('custom-list');
+  listEl.innerHTML = '';
+  if (state.customPuzzles.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'text-gray-500';
+    p.textContent = '保存済みの暗号はありません';
+    listEl.appendChild(p);
+    return;
+  }
+  state.customPuzzles.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between bg-gray-700 rounded p-2';
+    const span = document.createElement('span');
+    span.textContent = `${p.emoji} → ${p.answer}`;
+    const btn = document.createElement('button');
+    btn.className = 'text-red-400 hover:text-red-300 text-xs ml-2';
+    btn.setAttribute('aria-label', `削除: ${p.answer}`);
+    btn.textContent = '削除';
+    btn.addEventListener('click', () => {
+      state.customPuzzles.splice(i, 1);
+      saveState();
+      renderCustomList();
+    });
+    div.appendChild(span);
+    div.appendChild(btn);
+    listEl.appendChild(div);
+  });
+}
+
+document.getElementById('btn-submit').addEventListener('click', checkAnswer);
+document.getElementById('answer-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkAnswer();
+});
+document.getElementById('btn-hint').addEventListener('click', showHint);
+document.getElementById('btn-skip').addEventListener('click', skipQuestion);
+
+['easy','mid','hard'].forEach(d => {
+  document.getElementById(`btn-${d}`).addEventListener('click', () => {
+    state.difficulty = d === 'mid' ? 'medium' : d;
+    saveState();
+    startGame();
+  });
+});
+
+document.getElementById('btn-save-custom').addEventListener('click', () => {
+  const emoji = document.getElementById('custom-emoji').value.trim();
+  const answer = document.getElementById('custom-answer').value.trim();
+  const hint = document.getElementById('custom-hint').value.trim();
+  const msgEl = document.getElementById('save-msg');
+  if (!emoji || !answer) {
+    msgEl.textContent = '絵文字と答えは必須です';
+    return;
+  }
+  state.customPuzzles.push({ emoji, answer, hint: hint || 'ヒントなし', category: 'オリジナル' });
+  saveState();
+  document.getElementById('custom-emoji').value = '';
+  document.getElementById('custom-answer').value = '';
+  document.getElementById('custom-hint').value = '';
+  msgEl.textContent = '✅ 保存しました！';
+  setTimeout(() => { msgEl.textContent = ''; }, 2000);
+  renderCustomList();
+});
+
+document.getElementById('btn-share').addEventListener('click', () => {
+  const emoji = document.getElementById('custom-emoji').value.trim();
+  const answer = document.getElementById('custom-answer').value.trim();
+  if (!emoji || !answer) {
+    document.getElementById('save-msg').textContent = '先に絵文字と答えを入力してください';
+    return;
+  }
+  const url = `${location.href}?e=${encodeURIComponent(emoji)}&a=${encodeURIComponent(answer)}`;
+  navigator.clipboard.writeText(url).then(() => {
+    document.getElementById('save-msg').textContent = '✅ URLをコピーしました！';
+    setTimeout(() => { document.getElementById('save-msg').textContent = ''; }, 2000);
+  });
+});
+
+loadState();
+renderCustomList();
+startGame();
+</script>
+</body>
+</html>
